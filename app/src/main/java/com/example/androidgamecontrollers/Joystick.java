@@ -52,7 +52,7 @@ public class Joystick {
     }
 
     public boolean isPressed(float x, float y) {
-        return getTouchDistance(x, y) <= joystickBoundRadius;
+        return getTouchDistance(x, y) <= joystickRadius;
     }
 
     public void setIsPressed(boolean isPressed) {

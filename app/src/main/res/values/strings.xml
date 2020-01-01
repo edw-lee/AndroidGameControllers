@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">AndroidGameControllers</string>
+    <string name="bt_btn_desc">bluetooth button</string>
+    <string name="bt_turn_off">Turn Off</string>
+    <string name="bt_options_title">Bluetooth Options</string>
+    <string name="bt_change_paired_text">Change Paired Device</string>
+    <string name="bt_off_text">Bluetooth is off</string>
+    <string name="bt_on_text">Bluetooth is on</string>
+    <string name="bt_unavailable_text">Bluetooth is unavailable</string>
 </resources>

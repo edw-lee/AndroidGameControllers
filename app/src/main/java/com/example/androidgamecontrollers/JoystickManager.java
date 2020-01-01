@@ -12,11 +12,11 @@ import android.view.SurfaceView;
 This manages all objects in the game and is responsible for
 updating all states and render all objects to the screen
  */
-class ControllerManager extends SurfaceView implements SurfaceHolder.Callback {
+class JoystickManager extends SurfaceView implements SurfaceHolder.Callback {
     private Joystick joystick;
     private AppLoop appLoop;
 
-    public ControllerManager(Context context) {
+    public JoystickManager(Context context) {
         super(context);
 
         //Get surface holder and set callback
@@ -35,7 +35,7 @@ class ControllerManager extends SurfaceView implements SurfaceHolder.Callback {
 
         int joystickColor = getResources().getColor(R.color.joystickColor);
         int joystickBackground = getResources().getColor(R.color.joystickBackground);
-        joystick = new Joystick(getPivotX(), getPivotY(), 150, 200, joystickColor, joystickBackground);
+        joystick = new Joystick(getPivotX(), getPivotY(), 150, 100, joystickColor, joystickBackground);
     }
 
     @Override
@@ -78,8 +78,8 @@ class ControllerManager extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     public void drawJoystickActuatorValue(Canvas canvas) {
-        String actuatorX = String.format("%.2f", joystick.getActuatorX());
-        String actuatorY = String.format("%.2f", joystick.getActuatorY());
+        String actuatorX = String.format("%.4f", joystick.getActuatorX());
+        String actuatorY = String.format("%.4f", joystick.getActuatorY());
 
         Paint paint = new Paint();
         int color = getResources().getColor(R.color.green);

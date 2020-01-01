@@ -6,14 +6,14 @@ import android.view.SurfaceHolder;
 class AppLoop extends Thread{
     private static final double MAX_UPS = 30.0;
     private static final double UPS_PERIOD = 1E+3/MAX_UPS;
-    private ControllerManager controllerManager;
+    private JoystickManager joystickManager;
     private boolean isRunning = false;
     private SurfaceHolder surfaceHolder;
     private double averageUPS;
     private double averageFPS;
 
-    public AppLoop(ControllerManager controllerManager, SurfaceHolder surfaceHolder) {
-        this.controllerManager = controllerManager;
+    public AppLoop(JoystickManager joystickManager, SurfaceHolder surfaceHolder) {
+        this.joystickManager = joystickManager;
         this.surfaceHolder = surfaceHolder;
     }
 
@@ -51,10 +51,10 @@ class AppLoop extends Thread{
                 canvas = surfaceHolder.lockCanvas();
 
                 synchronized (surfaceHolder) {
-                    controllerManager.update();
+                    joystickManager.update();
                     updateCount++;
 
-                    controllerManager.draw(canvas);
+                    joystickManager.draw(canvas);
                 }
             } catch (IllegalArgumentException e) {
                 e.printStackTrace();
