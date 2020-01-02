@@ -7,6 +7,8 @@ import android.support.v4.content.ContextCompat;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
+import android.widget.Toast;
 
 /*
 This manages all objects in the game and is responsible for
@@ -30,7 +32,6 @@ class JoystickManager extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-
         appLoop.startLoop();
 
         int joystickColor = getResources().getColor(R.color.joystickColor);
@@ -50,6 +51,10 @@ class JoystickManager extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     public void draw(Canvas canvas) {
+        if(canvas == null) {
+            return;
+        }
+
         super.draw(canvas);
 
         drawUPS(canvas);

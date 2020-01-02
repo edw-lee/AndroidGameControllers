@@ -2,6 +2,7 @@ package com.example.androidgamecontrollers;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -22,59 +23,82 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
 
     private BroadcastReceiver broadcastReceiver;
 
-    public BluetoothManager(Context context, ImageButton btButton) {
+    private boolean isBtConnected = false;
+
+public BluetoothManager(Context context, ImageButton btButton) {
         this.context = context;
         this.activity = (Activity) context;
         this.btButton = btButton;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
-        if(getBluetoothAvailability()) {
-            updateBtStateUI();
-        } else {
-            btButton.setImageResource(R.drawable.ic_bluetooth_disabled);
-        }
+        //Update bluetooth state UI
+        isBtConnected = getBtConnectedState();
+        updateBtUIState();
+
+        setBtButtonOnClick();
 
         //To check for bluetooth state. eg, when changes is done externally
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 String action = intent.getAction();
+                int state;
 
-                if(action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                    int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
-
-                    switch (state) {
-                        case BluetoothAdapter.STATE_OFF:
-                            updateBtStateUI();
-                            showToast(context.getString(R.string.bt_off_text));
-                            break;
-                        case BluetoothAdapter.STATE_TURNING_OFF:
-                            //showToast("Turning off bluetooth...");
-                            break;
-                        case BluetoothAdapter.STATE_ON:
-                            updateBtStateUI();
-                            showToast(context.getString(R.string.bt_on_text));
-                            break;
-                        case BluetoothAdapter.STATE_TURNING_ON:
-                            //showToast("Turning on bluetooth...");
-                            break;
-                    }
+                switch(action) {
+                    case BluetoothAdapter.ACTION_STATE_CHANGED:
+                        state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+                        switch (state) {
+                            case BluetoothAdapter.STATE_OFF:
+                                updateBtUIState(context.getString(R.string.bt_off_text));
+                                break;
+                            case BluetoothAdapter.STATE_ON:
+                                updateBtUIState(context.getString(R.string.bt_on_text));
+                                break;
+                        }
+                        break;
+                    case BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED:
+                        state = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE, BluetoothAdapter.STATE_DISCONNECTED);
+                        switch (state) {
+                            case BluetoothAdapter.STATE_CONNECTED:
+                                isBtConnected = true;
+                                updateBtUIState(context.getString(R.string.bt_connected_text));
+                                break;
+                            case BluetoothAdapter.STATE_DISCONNECTED:
+                                isBtConnected = false;
+                                updateBtUIState(context.getString(R.string.bt_disconnected_text));
+                                break;
+                        }
+                        break;
                 }
             }
         };
-
-        setBtButtonOnClick();
     }
 
     public BroadcastReceiver getBroadcastReceiver() {
         return broadcastReceiver;
     }
 
-    public void updateBtStateUI(){
-        if(bluetoothAdapter.isEnabled()) {
-            btButton.setImageResource(R.drawable.ic_bluetooth_on);
+    public void updateBtUIState() {
+        updateBtUIState("");
+    }
+
+    public void updateBtUIState(String message){
+        if(getBtAvailability()) {
+            if (bluetoothAdapter.isEnabled()) {
+                if (isBtConnected) {
+                    btButton.setImageResource(R.drawable.ic_bluetooth_connected);
+                } else {
+                    btButton.setImageResource(R.drawable.ic_bluetooth_on);
+                }
+            } else {
+                btButton.setImageResource(R.drawable.ic_bluetooth_off);
+            }
         } else {
-            btButton.setImageResource(R.drawable.ic_bluetooth_off);
+            btButton.setImageResource(R.drawable.ic_bluetooth_disabled);
+        }
+
+        if(message.length() > 0) {
+            showToast(message);
         }
     }
 
@@ -82,7 +106,7 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
         btButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(getBluetoothAvailability()) {
+                if(getBtAvailability()) {
                     toggleBluetooth();
                 } else {
                     showToast(context.getString(R.string.bt_unavailable_text));
@@ -130,8 +154,20 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
         }
     }
 
-    public boolean getBluetoothAvailability() {
+    public boolean getBtAvailability() {
         return bluetoothAdapter != null;
+    }
+
+    public boolean getBtConnectedState() {
+        int[] profiles = {BluetoothProfile.A2DP, BluetoothProfile.HEADSET, BluetoothProfile.HEALTH};
+
+        for(int profile : profiles) {
+            if(bluetoothAdapter.getProfileConnectionState(profile) == BluetoothProfile.STATE_CONNECTED) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void toggleBluetooth() {
@@ -154,7 +190,6 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
     public void turnOffBluetooth() {
         if(bluetoothAdapter.isEnabled()) {
             bluetoothAdapter.disable();
-            updateBtStateUI();
         } else {
             showToast("Bluetooth is already off");
         }

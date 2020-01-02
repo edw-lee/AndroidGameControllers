@@ -2,6 +2,7 @@ package com.example.androidgamecontrollers;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
@@ -9,10 +10,12 @@ import android.support.constraint.ConstraintLayout;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.widget.ImageButton;
+import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
     BluetoothManager bluetoothManager;
+    JoystickManager joystickManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,12 +27,21 @@ public class MainActivity extends Activity {
             Log.w("LAYOUT", "Main lyaout is null");
         }
 
-        SurfaceView joystickManager = new JoystickManager(this);
+        joystickManager = new JoystickManager(this);
         main_layout.addView(joystickManager, 0);
 
         ImageButton btButton = findViewById(R.id.bluetooth_btn);
         bluetoothManager = new BluetoothManager(this, btButton);
-        registerReceiver(bluetoothManager.getBroadcastReceiver(), new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
+
+        IntentFilter btIntentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        btIntentFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
+        registerReceiver(bluetoothManager.getBroadcastReceiver(), btIntentFilter);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(bluetoothManager.getBroadcastReceiver());
     }
 
     @Override
