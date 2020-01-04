@@ -21,3 +21,7 @@ Bluetooth overview: https://developer.android.com/guide/topics/connectivity/blue
 #### Popup Window
 
 PopUpWindow in Android. Tutorial (by Evan Bishop): https://medium.com/@evanbishop/popupwindow-in-android-tutorial-6e5a18f49cc7
+
+### Tools Used
+
+Online UUID Generator Tool: https://www.uuidgenerator.net/
