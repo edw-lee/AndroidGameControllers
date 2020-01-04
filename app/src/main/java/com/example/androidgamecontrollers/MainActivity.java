@@ -2,15 +2,13 @@ package com.example.androidgamecontrollers;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
-import android.content.BroadcastReceiver;
+import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
 import android.util.Log;
-import android.view.SurfaceView;
 import android.widget.ImageButton;
-import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
@@ -35,6 +33,9 @@ public class MainActivity extends Activity {
 
         IntentFilter btIntentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         btIntentFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
+        btIntentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+        btIntentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+        btIntentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         registerReceiver(bluetoothManager.getBroadcastReceiver(), btIntentFilter);
     }
 
