@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.support.v4.content.ContextCompat;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -143,10 +144,11 @@ class JoystickManager extends SurfaceView implements SurfaceHolder.Callback {
 
         @Override
         public void run() {
-            byte xValue = (byte) (joystick.getActuatorX() * BYTE_MAX);
-            byte yValue = (byte) (joystick.getActuatorY() * BYTE_MAX);
-            byte[] msg = {xValue, yValue};
-            btManager.write(msg);
+            int xValue = (int) (joystick.getActuatorX() * BYTE_MAX);
+            int yValue = (int) (joystick.getActuatorY() * BYTE_MAX);
+            String msg = "<x" + xValue + "y" + yValue + ">";
+            Log.d("Sent Message", msg);
+            btManager.write(msg.getBytes());
         }
     }
 }
