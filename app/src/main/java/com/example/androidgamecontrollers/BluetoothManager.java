@@ -5,14 +5,15 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Bundle;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -36,6 +37,7 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
 
     private final String APP_NAME;
     private final UUID APP_UUID;
+    private final UUID HC_05_UUID;
     private final int REQUEST_ENABLE_BT = 0;
 
     private Context context;
@@ -43,7 +45,7 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
     private BluetoothAdapter btAdapter;
     private ImageButton btButton;
 
-    private boolean isBtConnected = false;
+    private boolean isBtConnected;
 
     private PopupWindow btDevicesListPopup;
     private View btPopupView;
@@ -51,10 +53,15 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
 
     private ArrayList<BluetoothDevice> discoveredBtDevices;
 
+    private BluetoothDevice selectedBtDevice;
+    private ConnectedThread btConnectedThread;
+    private ConnectThread btConnectingThread;
+    private String btDeviceName;
+    private IntentFilter btIntentFilter;
+
     private interface MessageConstants {
-        public static final int MESSAGE_READ = 0;
-        public static final int MESSAGE_WRITE = 1;
-        public static final int MESSAGE_TOAST = 2;
+        int MESSAGE_READ = 0;
+        int MESSAGE_WRITE = 0;
     }
 
     public BluetoothManager(Context context, ImageButton btButton) {
@@ -66,6 +73,7 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
         //Initialize constants
         APP_NAME = context.getResources().getString(R.string.app_name);
         APP_UUID = UUID.fromString(context.getResources().getString(R.string.app_uuid));
+        HC_05_UUID = UUID.fromString(context.getResources().getString(R.string.hc_05_uuid));
 
         //Update bluetooth state UI
         isBtConnected = getBtConnectedState();
@@ -78,6 +86,12 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
 
         //Initialize discovered devices set
         discoveredBtDevices = new ArrayList<>();
+
+        btIntentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        btIntentFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
+        btIntentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        btIntentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+        btIntentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
     }
 
     //To check for bluetooth state. eg, when changes is done externally
@@ -93,6 +107,7 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
                     state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
                     switch (state) {
                         case BluetoothAdapter.STATE_OFF:
+                            disconnectBtDevice();
                             updateBtUIState(context.getString(R.string.bt_off_text));
                             break;
                         case BluetoothAdapter.STATE_ON:
@@ -110,36 +125,56 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
                             break;
                         case BluetoothAdapter.STATE_DISCONNECTED:
                             isBtConnected = false;
-
+                            btConnectedThread = null;
                             updateBtUIState(context.getString(R.string.bt_disconnected_text));
                             break;
                     }
                     break;
+                case BluetoothDevice.ACTION_ACL_CONNECTED:
+                    isBtConnected = true;
+                    updateBtUIState(context.getString(R.string.bt_connected_text));
+                    showToast("Connected to " + btDeviceName);
+                    break;
+                case BluetoothDevice.ACTION_ACL_DISCONNECTED:
+                    isBtConnected = false;
+                    updateBtUIState(context.getString(R.string.bt_disconnected_text));
+                    showToast("Disconnected from " + btDeviceName);
+                    break;
                 case BluetoothDevice.ACTION_FOUND:
                     addDiscoveredBtDevice((BluetoothDevice)intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
                     break;
-                case BluetoothAdapter.ACTION_DISCOVERY_STARTED:
-                    showToast("Bluetooth discovery started");
-                    break;
-                case BluetoothAdapter.ACTION_DISCOVERY_FINISHED:
-                    showToast("Bluetooth discovery ended");
+                case BluetoothDevice.ACTION_BOND_STATE_CHANGED:
+                    state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1);
+                    switch (state) {
+                        case BluetoothDevice.BOND_BONDED:
+                            showToast("Successfully paired with " + btDeviceName);
+                            connectBtDevice();
+                            break;
+                    }
                     break;
             }
         }
     };
 
     @SuppressLint("HandlerLeak")
-    private Handler btHandler = new Handler() {
+    private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-
+            /*switch (msg.what) {
+                case MessageConstants.MESSAGE_WRITE:
+                    String writtenMsg = new String((byte[])msg.obj);
+                    showToast("Message sent: " + writtenMsg);
+                    break;
+            }*/
         }
-    }; //To get info from Bluetooth Service
-
+    };
 
     public BroadcastReceiver getBroadcastReceiver() {
         return broadcastReceiver;
+    }
+
+    public IntentFilter getBtIntentFilter() {
+        return btIntentFilter;
     }
 
     private void updateBtUIState() {
@@ -330,6 +365,31 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
         discoveredBtDevices.add(btDevice);
     }
 
+    private void connectBtDevice() {
+        if(btConnectingThread != null) {
+            btConnectingThread.cancel();
+        }
+
+        disconnectBtDevice();
+        updateBtUIState();
+
+        btConnectingThread = new ConnectThread(selectedBtDevice);
+        btConnectingThread.start();
+        showToast("Connecting to " + btDeviceName + "...");
+    }
+
+    private void disconnectBtDevice() {
+        if(btConnectedThread != null) {
+            btConnectedThread.cancel();
+            btConnectedThread = null;
+            isBtConnected = false;
+        }
+    }
+
+    private void manageConnectedBtSocket(BluetoothSocket btSocket) {
+        btConnectedThread = new ConnectedThread(btSocket);
+    }
+
     private Button createBtDeviceBtn(final String btnDeviceName, final BluetoothDevice btDevice) {
         Button btDeviceBtn = new Button(context);
         btDeviceBtn.setText(btnDeviceName);
@@ -337,9 +397,21 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
         btDeviceBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ConnectThread connectThread = new ConnectThread(btDevice);
-                connectThread.start();
+                btDeviceName = btDevice.getName() != null?
+                        btDevice.getName() : btDevice.getAddress();
 
+                //Pair bluetooth
+                if(btDevice.getBondState() == BluetoothDevice.BOND_NONE) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                        btDevice.createBond();
+                        selectedBtDevice = btDevice;
+                    }
+                } else {
+                    selectedBtDevice = btDevice;
+                    connectBtDevice();
+                }
+
+                //Dismiss the pop up window
                 btDevicesListPopup.dismiss();
             }
         });
@@ -386,109 +458,49 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
     }
 
-    private void manageConnectedSocket(BluetoothSocket socket) {
-        ConnectedThread connectedThread = new ConnectedThread(socket);
-        connectedThread.start();
-    }
-
-    //Act as a server that waits for connection to be made
-    private class AcceptThread extends Thread {
-        private final BluetoothServerSocket btServerSocket;
-
-        public AcceptThread(String name, UUID uuid) {
-            //Initialize temp to assign to btServerSocket later because it is a final variable
-            BluetoothServerSocket temp = null;
-            try {
-                temp = btAdapter.listenUsingRfcommWithServiceRecord(APP_NAME, APP_UUID);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            btServerSocket = temp;
-        }
-
-        @Override
-        public void run() {
-            super.run();
-
-            BluetoothSocket btSocket = null;
-
-            while(true) {
-                //Listens until socket is returned
-                try {
-                    btSocket = btServerSocket.accept();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    break;
-                }
-
-                if(btSocket != null) {
-                    //Manage connected socket in another thread
-                    manageConnectedSocket(btSocket);
-
-                    try {
-                        btServerSocket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    break;
-                }
-            }
-        }
-
-        public void cancel() {
-            try {
-                btServerSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    public void write(byte[] data) {
+        if(btConnectedThread != null) {
+            btConnectedThread.write(data);
         }
     }
 
-    //Connect as a client
     private class ConnectThread extends Thread {
+        private final BluetoothDevice btDevice;
         private final BluetoothSocket btSocket;
 
-        private ConnectThread(BluetoothDevice btDevice) {
-
-            //Use temp because btSocket is final
+        public ConnectThread(BluetoothDevice btDevice) {
+            this.btDevice = btDevice;
             BluetoothSocket temp = null;
 
             try {
-                temp = btDevice.createRfcommSocketToServiceRecord(APP_UUID);
+                temp = btDevice.createRfcommSocketToServiceRecord(HC_05_UUID);
             } catch (IOException e) {
-                e.printStackTrace();
+                Log.e("Bluetooth Socket", "Failed to create socket.", e);
             }
 
             btSocket = temp;
         }
 
-        @Override
         public void run() {
-            super.run();
+            btAdapter.cancelDiscovery();
 
-            //Cancel discovery to prevent connection slow down
-            if(btAdapter.isDiscovering()) {
-                btAdapter.cancelDiscovery();
-            }
-
+            //Connect to remote device through the socket.
+            //connect() function call blocks until it succeeds or throw exception
             try {
                 btSocket.connect();
-            } catch (IOException e) {
-                e.printStackTrace();
-
-                //Unable to connect, close it
+            } catch (IOException connectException) {
+                Log.e("Socket connect", "Unable to connect to bluetooth socket.", connectException);
                 try {
                     btSocket.close();
-                } catch (IOException e1) {
-                    e1.printStackTrace();
+                } catch (IOException closeException) {
+                    Log.e("Socket close", "Unable to close bluetooth socket.", closeException);
                 }
 
                 return;
             }
 
-            //Manage connected socket in another thread
-            manageConnectedSocket(btSocket);
+            //Manage the connected socket
+            manageConnectedBtSocket(btSocket);
         }
 
         public void cancel() {
@@ -502,69 +514,59 @@ public class BluetoothManager implements PopupMenu.OnMenuItemClickListener {
 
     private class ConnectedThread extends Thread {
         private final BluetoothSocket btSocket;
-        private final InputStream btInStream;
-        private final OutputStream btOutStream;
-        private byte[] buffer; //Buffer to store stream
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+        private byte[] streamBuffer;
 
         public ConnectedThread(BluetoothSocket btSocket) {
             this.btSocket = btSocket;
-            InputStream tempIn = null;
-            OutputStream tempOut = null;
+            InputStream tempInputStream = null;
+            OutputStream tempOutputStream = null;
 
             try {
-                tempIn = btSocket.getInputStream();
+                tempInputStream = btSocket.getInputStream();
             } catch (IOException e) {
                 e.printStackTrace();
             }
 
             try {
-                tempOut = btSocket.getOutputStream();
-            }catch (IOException e) {
+                tempOutputStream = btSocket.getOutputStream();
+            } catch (IOException e) {
                 e.printStackTrace();
             }
 
-            btInStream = tempIn;
-            btOutStream = tempOut;
+            inputStream = tempInputStream;
+            outputStream = tempOutputStream;
         }
 
         public void run() {
-            buffer = new byte[1024];
-            int numBytes; //bytes returned from read();
+            streamBuffer = new byte[1024];
+            int numBytes; //bytes returned from read()
 
-            while(true) {
+            //Listens to input stream until an exception occurs
+            while (btSocket.isConnected()) {
                 try {
-                    //Read from input stream
-                    numBytes = btInStream.read(buffer);
+                    numBytes = inputStream.read(streamBuffer);
 
-                    //Send the obtained bytes to UI activity
-                    Message readMsg = btHandler.obtainMessage(
-                            MessageConstants.MESSAGE_READ, numBytes, -1, buffer);
+                    Message readMsg = handler.obtainMessage(
+                            MessageConstants.MESSAGE_READ, numBytes, -1, streamBuffer);
                     readMsg.sendToTarget();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    Log.e("InputStream Error: ", "Input stream disconnected.", e);
                     break;
                 }
             }
         }
 
-        //Call this function to send data to remote device
         public void write(byte[] bytes) {
             try {
-                btOutStream.write(bytes);
+                outputStream.write(bytes);
 
-                //Share the sent message with the UI activity
-                Message writtenMsg = btHandler.obtainMessage(
-                        MessageConstants.MESSAGE_WRITE, -1, -1, buffer);
+                Message writtenMsg = handler.obtainMessage(
+                        MessageConstants.MESSAGE_WRITE, -1, -1, bytes);
                 writtenMsg.sendToTarget();
             } catch (IOException e) {
-                e.printStackTrace();
-
-                //Send failure message back to activity
-                Message writeErrorMsg = btHandler.obtainMessage(MessageConstants.MESSAGE_TOAST);
-                Bundle bundle = new Bundle();
-                bundle.putString("toast", "Unable to send data to the other device");
-                writeErrorMsg.setData(bundle);
-                btHandler.sendMessage(writeErrorMsg);
+                Log.e("OutputStream Error: ", "Error occured when sending data.", e);
             }
         }
 

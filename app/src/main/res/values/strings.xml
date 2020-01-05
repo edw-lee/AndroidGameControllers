@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">AndroidGameControllers</string>
     <string name="app_uuid">e3c605f8-384b-4772-9d00-0702626d5f39</string>
+    <string name="hc_05_uuid">00001101-0000-1000-8000-00805f9b34fb</string>
     <string name="bt_btn_desc">bluetooth button</string>
     <string name="bt_turn_off">Turn Off</string>
     <string name="bt_options_title">Bluetooth Options</string>

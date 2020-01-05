@@ -1,10 +1,7 @@
 package com.example.androidgamecontrollers;
 
 import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
 import android.util.Log;
@@ -12,7 +9,7 @@ import android.widget.ImageButton;
 
 public class MainActivity extends Activity {
 
-    BluetoothManager bluetoothManager;
+    BluetoothManager btManager;
     JoystickManager joystickManager;
 
     @Override
@@ -22,32 +19,27 @@ public class MainActivity extends Activity {
 
         ConstraintLayout main_layout = findViewById(R.id.main_layout);
         if(main_layout == null) {
-            Log.w("LAYOUT", "Main lyaout is null");
+            Log.w("LAYOUT", "Main layout is null");
         }
 
-        joystickManager = new JoystickManager(this);
+        ImageButton btButton = findViewById(R.id.bluetooth_btn);
+        btManager = new BluetoothManager(this, btButton);
+
+        joystickManager = new JoystickManager(this, btManager);
         main_layout.addView(joystickManager, 0);
 
-        ImageButton btButton = findViewById(R.id.bluetooth_btn);
-        bluetoothManager = new BluetoothManager(this, btButton);
-
-        IntentFilter btIntentFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        btIntentFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
-        btIntentFilter.addAction(BluetoothDevice.ACTION_FOUND);
-        btIntentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-        btIntentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        registerReceiver(bluetoothManager.getBroadcastReceiver(), btIntentFilter);
+        registerReceiver(btManager.getBroadcastReceiver(), btManager.getBtIntentFilter());
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(bluetoothManager.getBroadcastReceiver());
+        unregisterReceiver(btManager.getBroadcastReceiver());
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        bluetoothManager.onActivityResult(requestCode, resultCode, data);
+        btManager.onActivityResult(requestCode, resultCode, data);
     }
 }
