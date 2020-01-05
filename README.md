@@ -16,7 +16,10 @@ Ep. 04 - Joystick and touch events (by Alex Bükk): https://www.youtube.com/watc
 #### Bluetooth:
 
 Bluetooth – Android Studio Tutorial (by tif Pervaiz): https://www.youtube.com/watch?v=wLRQ9EClYuA
-Bluetooth overview: https://developer.android.com/guide/topics/connectivity/bluetooth
+
+Bluetooth overview: https://developer.android.com/guide/topics/connectivity/bluetooth3
+
+How to Connect Android with Arduino: https://www.youtube.com/watch?v=nMcZmrH27z8
 
 #### Popup Window
 
