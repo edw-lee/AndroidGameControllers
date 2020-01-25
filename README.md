@@ -1,4 +1,4 @@
-# AndroidGameControllers
+# Arduino Joystick App
 Game Controllers for Android
 
 A android application created to virtualize various game controllers
